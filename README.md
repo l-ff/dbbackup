@@ -186,5 +186,3 @@ DATABASE_URLS="mysql://user:my%40password@host:3306/db"
 
 - 维护者：lff <dev_lff@outlook.com>
 - 项目主页：[GitHub](https://github.com/l-ff/dbbackup)
-
-- 项目主页：[GitHub](https://github.com/l-ff/dbbackup)
