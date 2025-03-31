@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # 常量定义
-readonly LOG_PREFIX="[mgbackup]"
+readonly LOG_PREFIX="[dbbackup]"
 readonly REQUIRED_VARS="DATABASE_URLS GIT_REPO GIT_TOKEN"
 
 # 日志函数
@@ -128,7 +128,7 @@ main() {
 
     # 显示启动信息
     log "INFO" "==================================================="
-    log "INFO" "Database GitBackup Service (mgbackup) v${APP_VERSION}"
+    log "INFO" "Database GitBackup Service (dbbackup) v${APP_VERSION}"
     log "INFO" "==================================================="
 
     # 验证环境

@@ -6,7 +6,7 @@ log() {
     level="${1:-INFO}"
     shift
     message="$*"
-    echo "[mgbackup][$(date +'%Y-%m-%d %H:%M:%S')][${level}] ${message}" | tee -a "${BACKUP_LOG}"
+    echo "[dbbackup][$(date +'%Y-%m-%d %H:%M:%S')][${level}] ${message}" | tee -a "${BACKUP_LOG}"
 }
 
 # 错误处理函数

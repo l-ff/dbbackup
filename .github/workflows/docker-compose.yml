@@ -13,7 +13,7 @@ on:
 env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/mgbackup
+  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/dbbackup
 
 jobs:
   build-and-push:

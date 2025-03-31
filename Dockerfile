@@ -5,8 +5,8 @@ FROM alpine:3.16
 LABEL maintainer="lff <dev_lff@outlook.com>" \
       description="Database GitBackup - Automated database backup solution with Git integration" \
       version="1.0.0" \
-      name="mgbackup" \
-      org.opencontainers.image.source="https://github.com/yourusername/mgbackup" \
+      name="dbbackup" \
+      org.opencontainers.image.source="https://github.com/l-ff/dbbackup" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.title="Database GitBackup"
 
