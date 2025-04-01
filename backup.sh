@@ -22,7 +22,7 @@ trap 'handle_error $? $LINENO' ERR
 
 # 验证环境变量
 validate_env_vars() {
-    required_vars="DATABASE_URLS REPO_DIR BACKUP_LOG REQUIRED_SPACE MAX_BACKUPS COMPRESSION_LEVEL"
+    required_vars="REPO_DIR BACKUP_LOG REQUIRED_SPACE MAX_BACKUPS COMPRESSION_LEVEL"
     
     for var in $required_vars; do
         if [ -z "${!var:-}" ]; then

@@ -27,21 +27,21 @@ Database GitBackup 是一个自动化的数据库备份解决方案，支持 MyS
 # 基本配置示例
 docker run -d \
   --name dbbackup \
-  -e DATABASE_URLS="mysql://user:pass@host1:3306/db1,postgres://user:pass@host2:5432/db2" \
   -e GIT_REPO=your-username/your-repo \
   -e GIT_TOKEN=your-github-token \
   -e CRON_SCHEDULE="0 2 * * *" \
+  -e DATABASE_CONFIG_FILE=my-db-config.txt \
   -v /path/to/backup:/backup \
   lff0/dbbackup
 
 # 完整配置示例
 docker run -d \
   --name dbbackup \
-  -e DATABASE_URLS="mysql://user:pass@host1:3306/db1,postgres://user:pass@host2:5432/db2" \
   -e GIT_REPO=your-username/your-repo \
   -e GIT_TOKEN=your-github-token \
   -e GIT_USER="Backup Bot" \
   -e GIT_EMAIL="backup@example.com" \
+  -e DATABASE_CONFIG_FILE=my-db-config.txt \
   -e CRON_SCHEDULE="0 2 * * *" \
   -e MAX_BACKUPS=30 \
   -e COMPRESSION_LEVEL=9 \
@@ -52,69 +52,68 @@ docker run -d \
   lff0/dbbackup
 ```
 
-### 本地构建
+### 数据库连接配置
 
-1. 克隆仓库
+数据库连接配置通过 Git 仓库中的配置文件管理。默认使用 `database_urls.txt` 文件，您可以通过设置 `DATABASE_CONFIG_FILE` 环境变量来自定义配置文件名称。当容器首次启动时，会自动创建此文件并推送到仓库。您需要编辑此文件添加数据库连接信息，然后重启容器。
 
-```bash
-git clone https://github.com/l-ff/dbbackup.git
-cd dbbackup
+#### 数据库连接字符串文件格式
+
+在 Git 仓库中配置数据库连接（以下以默认的 `database_urls.txt` 为例）：
+
+```txt
+# 每行一个数据库连接字符串
+# MySQL 示例
+mysql://user1:pass1@host1:3306/db1
+mysql://backup:pass123@localhost:3306/wordpress
+mysql://root:complex-pass@mysql.example.com:3306/shop
+
+# PostgreSQL 示例
+postgres://user2:pass2@host2:5432/db2
+postgres://postgres:pass456@localhost:5432/blog
+postgres://admin:secure-pass@pg.example.com:5432/analytics
+
+# 带特殊字符的密码示例
+mysql://user:my%40complex%23pass@host:3306/db
+postgres://user:pass%26word%23123@host:5432/db
+
+# 不同环境的数据库
+# 测试环境
+mysql://test_user:test123@test.mysql:3306/testdb
+# 生产环境
+mysql://prod_user:prod123@prod.mysql:3306/proddb
 ```
 
-2. 构建镜像
-
-```bash
-docker build -t dbbackup:latest .
-```
-
-3. 运行容器
-
-```bash
-# 基本配置示例
-docker run -d \
-  --name dbbackup \
-  -e DATABASE_URLS="mysql://user:pass@host1:3306/db1,postgres://user:pass@host2:5432/db2" \
-  -e GIT_REPO=your-username/your-repo \
-  -e GIT_TOKEN=your-github-token \
-  -e CRON_SCHEDULE="0 2 * * *" \
-  -v /path/to/backup:/backup \
-  dbbackup:latest
-
-# 完整配置示例
-docker run -d \
-  --name dbbackup \
-  -e DATABASE_URLS="mysql://user:pass@host1:3306/db1,postgres://user:pass@host2:5432/db2" \
-  -e GIT_REPO=your-username/your-repo \
-  -e GIT_TOKEN=your-github-token \
-  -e GIT_USER="Backup Bot" \
-  -e GIT_EMAIL="backup@example.com" \
-  -e CRON_SCHEDULE="0 2 * * *" \
-  -e MAX_BACKUPS=30 \
-  -e COMPRESSION_LEVEL=9 \
-  -e REQUIRED_SPACE=2000 \
-  -e TZ=Asia/Shanghai \
-  -e BACKUP_ON_START=true \
-  -v /path/to/backup:/backup \
-  dbbackup:latest
-```
+注意事项：
+- 每行一个数据库连接字符串
+- 以 # 开头的行被视为注释
+- 空行会被忽略
+- 支持同时配置多个数据库
+- 支持混合使用 MySQL 和 PostgreSQL
+- 可以通过 DATABASE_CONFIG_FILE 环境变量自定义配置文件名称
+- 密码中的特殊字符需要进行 URL 编码
+- 建议使用注释对不同环境或用途的数据库进行分组
+- 建议将配置文件中的敏感信息（如密码）替换为环境变量或使用密钥管理服务
 
 ### 环境变量配置
 
-| 变量名            | 描述                                | 默认值           | 是否必需 |
-| ----------------- | ----------------------------------- | ---------------- | -------- |
-| DATABASE_URLS     | 数据库连接 URL 列表（逗号分隔）     | -                | 是       |
-| GIT_REPO          | Git 仓库地址（格式：用户名/仓库名） | -                | 是       |
-| GIT_TOKEN         | GitHub 个人访问令牌                 | -                | 是       |
-| GIT_USER          | Git 提交用户名                      | AutoSync Bot     | 否       |
-| GIT_EMAIL         | Git 提交邮箱                        | autosync@bot.com | 否       |
-| CRON_SCHEDULE     | 定时任务计划                        | "0 2 \* \* \*"   | 否       |
-| BACKUP_DIR        | 备份文件存储目录                    | /backup          | 否       |
-| REPO_DIR          | Git 仓库目录                        | /backup/repo     | 否       |
-| MAX_BACKUPS       | 每个数据库保留的最大备份数量        | 10               | 否       |
-| COMPRESSION_LEVEL | gzip 压缩级别（1-9）                | 6                | 否       |
-| REQUIRED_SPACE    | 所需最小磁盘空间（MB）              | 1000             | 否       |
-| TZ                | 时区设置                            | Asia/Shanghai    | 否       |
-| BACKUP_ON_START   | 容器启动时是否执行初始备份          | false            | 否       |
+所有环境变量的默认值都在 Dockerfile 中定义。
+
+| 变量名              | 描述                                | 是否必需 |
+| ------------------ | ----------------------------------- | -------- |
+| GIT_REPO          | Git 仓库地址（格式：用户名/仓库名）   | 是       |
+| GIT_TOKEN         | GitHub 个人访问令牌                  | 是       |
+| GIT_USER          | Git 提交用户名                       | 否       |
+| GIT_EMAIL         | Git 提交邮箱                         | 否       |
+| DATABASE_CONFIG_FILE | 数据库配置文件名称                  | 否       |
+| CRON_SCHEDULE     | 定时任务计划                         | 否       |
+| BACKUP_DIR        | 备份文件存储目录                     | 否       |
+| REPO_DIR          | Git 仓库目录                         | 否       |
+| BACKUP_LOG        | 备份日志文件路径                     | 否       |
+| MAX_BACKUPS       | 每个数据库保留的最大备份数量         | 否       |
+| COMPRESSION_LEVEL | gzip 压缩级别（1-9）                 | 否       |
+| REQUIRED_SPACE    | 所需最小磁盘空间（MB）               | 否       |
+| TZ                | 时区设置                             | 否       |
+| BACKUP_ON_START   | 容器启动时是否执行初始备份           | 否       |
 
 ### 数据库连接 URL 格式
 
@@ -132,23 +131,24 @@ postgres://username:password@host:port/database
 
 #### 单个 MySQL 数据库
 ```
-DATABASE_URLS="mysql://root:password@localhost:3306/mydb"
+mysql://root:password@localhost:3306/mydb
 ```
 
 #### 单个 PostgreSQL 数据库
 ```
-DATABASE_URLS="postgres://postgres:password@localhost:5432/mydb"
+postgres://postgres:password@localhost:5432/mydb
 ```
 
 #### 多个数据库（混合类型）
 ```
-DATABASE_URLS="mysql://user1:pass1@host1:3306/db1,postgres://user2:pass2@host2:5432/db2"
+mysql://user1:pass1@host1:3306/db1
+postgres://user2:pass2@host2:5432/db2
 ```
 
 #### 使用特殊字符的密码
 如果密码中包含特殊字符，需要进行 URL 编码：
 ```
-DATABASE_URLS="mysql://user:my%40password@host:3306/db"
+mysql://user:my%40password@host:3306/db
 ```
 
 ## 备份文件结构

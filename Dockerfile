@@ -22,13 +22,18 @@ ENV BACKUP_DIR=/backup \
     GIT_USER="AutoSync Bot" \
     GIT_EMAIL="autosync@bot.com" \
     COMPRESSION_LEVEL=6 \
-    REQUIRED_SPACE=1000
+    REQUIRED_SPACE=1000 \
+    BACKUP_ON_START=false \
+    DATABASE_CONFIG_FILE=database_urls.txt
 
-# 安装依赖
-RUN apk add --no-cache \
+# 添加 PostgreSQL 官方源并安装依赖
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache \
     mariadb-client \
     mariadb-connector-c \
-    postgresql-client \
+    postgresql17-client \
     gzip \
     git \
     curl \

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 常量定义
 readonly LOG_PREFIX="[dbbackup]"
-readonly REQUIRED_VARS="DATABASE_URLS GIT_REPO GIT_TOKEN"
+readonly REQUIRED_VARS="GIT_REPO GIT_TOKEN"
 
 # 日志函数
 log() {
@@ -22,9 +22,45 @@ handle_error() {
     exit "${exit_code}"
 }
 
+# 从 Git 仓库读取数据库连接字符串
+read_database_urls() {
+    local urls_file="${REPO_DIR}/${DATABASE_CONFIG_FILE:-database_urls.txt}"
+    
+    # 如果文件不存在，创建它
+    if [ ! -f "${urls_file}" ]; then
+        log "INFO" "创建数据库连接字符串文件: ${urls_file}..."
+        echo "# 每行一个数据库连接字符串" > "${urls_file}"
+        echo "# 示例：" >> "${urls_file}"
+        echo "# mysql://user:pass@host:3306/db" >> "${urls_file}"
+        echo "# postgres://user:pass@host:5432/db" >> "${urls_file}"
+        
+        # 提交初始文件
+        cd "${REPO_DIR}"
+        git add "${urls_file}"
+        git commit -m "初始化数据库连接字符串文件"
+        git push origin HEAD
+        
+        log "ERROR" "请在 ${DATABASE_CONFIG_FILE:-database_urls.txt} 文件中配置数据库连接字符串后重启容器"
+        exit 1
+    fi
+    
+    # 读取非空行和非注释行
+    DATABASE_URLS=$(grep -v '^#' "${urls_file}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
+    
+    if [ -z "${DATABASE_URLS}" ]; then
+        log "ERROR" "未找到有效的数据库连接字符串，请在 ${DATABASE_CONFIG_FILE:-database_urls.txt} 中配置"
+        return 1
+    fi
+    
+    export DATABASE_URLS
+    log "INFO" "成功从文件读取数据库连接字符串"
+    return 0
+}
+
 # 验证环境变量
 check_required_vars() {
-    for var in ${REQUIRED_VARS}; do
+    # 检查必需的 Git 相关环境变量
+    for var in GIT_REPO GIT_TOKEN; do
         eval value=\$$var
         if [ -z "${value:-}" ]; then
             log "ERROR" "环境变量 ${var} 未设置"
@@ -133,11 +169,16 @@ main() {
 
     # 验证环境
     check_required_vars || exit 1
-    check_database_connection || exit 1
 
     # 设置 Git 仓库
     setup_git_repo || exit 1
     record_start_time
+
+    # 读取数据库连接字符串
+    read_database_urls || exit 1
+
+    # 验证数据库连接
+    check_database_connection || exit 1
 
     # 启动 cron 服务
     log "INFO" "启动 cron 服务..."
