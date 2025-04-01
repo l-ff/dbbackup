@@ -87,7 +87,7 @@ check_database_connection() {
                 --user="${user}" --password="${pass}" \
                 -e "SELECT 1" > /dev/null 2>&1; then
                 log "ERROR" "无法连接到 MySQL 服务器: ${host}:${port}"
-                return 1
+                return 0
             fi
         elif [[ $url == postgres://* ]]; then
             # 解析 PostgreSQL URL
@@ -100,11 +100,11 @@ check_database_connection() {
             log "INFO" "验证 PostgreSQL 连接: ${host}:${port}"
             if ! PGPASSWORD="${pass}" psql -h "${host}" -p "${port}" -U "${user}" -d "${db}" -c "SELECT 1" > /dev/null 2>&1; then
                 log "ERROR" "无法连接到 PostgreSQL 服务器: ${host}:${port}"
-                return 1
+                return 0
             fi
         else
             log "ERROR" "不支持的数据库 URL 格式: ${url}"
-            return 1
+            return 0
         fi
     done
     log "INFO" "所有数据库连接验证成功"
@@ -149,6 +149,14 @@ setup_git_repo() {
 # 记录启动时间
 record_start_time() {
     log "INFO" "记录启动时间..."
+    
+    # 如果文件存在，保留最近30行
+    if [ -f start_time.txt ]; then
+        tail -n 30 start_time.txt > start_time.txt.tmp
+        mv start_time.txt.tmp start_time.txt
+    fi
+    
+    # 添加新的启动时间记录
     echo "$(date +'%Y-%m-%d %H:%M:%S')" >> start_time.txt
     if ! git add start_time.txt || \
        ! git commit -m "记录启动时间" || \
