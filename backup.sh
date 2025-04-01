@@ -83,7 +83,7 @@ verify_backup() {
     fi
     
     # 检查文件大小
-    local file_size=$(stat -f%z "${backup_file}")
+    local file_size=$(stat -c%s "${backup_file}" 2>/dev/null || stat -f%z "${backup_file}")
     if [ "$file_size" -eq 0 ]; then
         log "ERROR" "备份文件为空: ${backup_file}"
         return 1
@@ -223,15 +223,36 @@ backup_database() {
     # 提交到 git 仓库
     if [ -d "${REPO_DIR}/.git" ]; then
         cd "${REPO_DIR}" || exit 1
-        if git add "${backup_dir}/backup_${date_str}.sql.gz"; then
+        
+        # 检查是否存在锁文件
+        if [ -f ".git/index.lock" ]; then
+            log "WARN" "发现 Git 锁文件，尝试删除..."
+            rm -f .git/index.lock
+        fi
+        
+        # 添加文件到暂存区
+        if ! git add "${backup_dir}/backup_${date_str}.sql.gz"; then
+            log "WARN" "数据库 ${db_name} 备份添加到 git 暂存区失败"
+            return 0
+        fi
+        
+        # 尝试提交，最多重试3次
+        max_retries=3
+        retry_count=1
+        while [ $retry_count -le $max_retries ]; do
             if git commit -m "备份数据库 ${db_name} - ${date_str}"; then
                 log "INFO" "数据库 ${db_name} 备份已提交到 git 仓库"
+                break
             else
-                log "WARN" "数据库 ${db_name} 备份提交到 git 仓库失败"
+                if [ $retry_count -eq $max_retries ]; then
+                    log "WARN" "数据库 ${db_name} 备份提交到 git 仓库失败（已重试${max_retries}次）"
+                    break
+                fi
+                log "WARN" "数据库 ${db_name} 备份提交失败，${retry_count}秒后重试..."
+                sleep $retry_count
+                retry_count=$((retry_count + 1))
             fi
-        else
-            log "WARN" "数据库 ${db_name} 备份添加到 git 暂存区失败"
-        fi
+        done
     else
         log "WARN" "未找到 git 仓库，跳过提交操作"
     fi
