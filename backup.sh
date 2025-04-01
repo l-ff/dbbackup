@@ -180,7 +180,7 @@ backup_database() {
                 --single-transaction \
                 --quick \
                 --lock-tables=false \
-                --ssl-mode=DISABLED \
+                --ssl=0 \
                 "$db_name" \
                 > "${backup_file}"; then
                 log "ERROR" "数据库 ${db_name} 备份失败"
@@ -219,6 +219,22 @@ backup_database() {
     
     # 清理过期备份
     cleanup_old_backups "$backup_dir" "$db_name"
+    
+    # 提交到 git 仓库
+    if [ -d "${REPO_DIR}/.git" ]; then
+        cd "${REPO_DIR}" || exit 1
+        if git add "${backup_dir}/backup_${date_str}.sql.gz"; then
+            if git commit -m "备份数据库 ${db_name} - ${date_str}"; then
+                log "INFO" "数据库 ${db_name} 备份已提交到 git 仓库"
+            else
+                log "WARN" "数据库 ${db_name} 备份提交到 git 仓库失败"
+            fi
+        else
+            log "WARN" "数据库 ${db_name} 备份添加到 git 暂存区失败"
+        fi
+    else
+        log "WARN" "未找到 git 仓库，跳过提交操作"
+    fi
     
     return 0
 }
