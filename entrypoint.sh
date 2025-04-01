@@ -178,7 +178,7 @@ main() {
     read_database_urls || exit 1
 
     # 验证数据库连接
-    check_database_connection # || exit 1
+    check_database_connection
 
     # 启动 cron 服务
     log "INFO" "启动 cron 服务..."
