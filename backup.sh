@@ -180,6 +180,7 @@ backup_database() {
                 --single-transaction \
                 --quick \
                 --lock-tables=false \
+                --ssl-mode=DISABLED \
                 "$db_name" \
                 > "${backup_file}"; then
                 log "ERROR" "数据库 ${db_name} 备份失败"
