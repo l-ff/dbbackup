@@ -180,7 +180,7 @@ backup_database() {
                 --single-transaction \
                 --quick \
                 --lock-tables=false \
-                "$db_name" 2>/dev/null \
+                "$db_name" \
                 > "${backup_file}"; then
                 log "ERROR" "数据库 ${db_name} 备份失败"
                 rm -f "${backup_file}"
