@@ -53,6 +53,51 @@ check_disk_space() {
     return 0
 }
 
+# 解析数据库 URL
+parse_db_url() {
+    local url="$1"
+    local db_type="$2"
+    
+    case "$db_type" in
+        "mysql")
+            echo "$url" | sed -n "s/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\1:\2:\3:\4:\5/p"
+            ;;
+        "postgres")
+            echo "$url" | sed -n "s/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\1:\2:\3:\4:\5/p"
+            ;;
+        *)
+            log "ERROR" "不支持的数据库类型: ${db_type}"
+            return 1
+            ;;
+    esac
+}
+
+# 验证备份文件
+verify_backup() {
+    local backup_file="$1"
+    local db_type="$2"
+    
+    if [ ! -f "${backup_file}" ]; then
+        log "ERROR" "备份文件不存在: ${backup_file}"
+        return 1
+    fi
+    
+    # 检查文件大小
+    local file_size=$(stat -f%z "${backup_file}")
+    if [ "$file_size" -eq 0 ]; then
+        log "ERROR" "备份文件为空: ${backup_file}"
+        return 1
+    fi
+    
+    # 检查文件完整性
+    if ! gzip -t "${backup_file}" 2>/dev/null; then
+        log "ERROR" "备份文件损坏: ${backup_file}"
+        return 1
+    fi
+    
+    return 0
+}
+
 # 清理过期备份
 cleanup_old_backups() {
     backup_dir=$1
@@ -80,26 +125,29 @@ cleanup_old_backups() {
 # 备份单个数据库函数
 backup_database() {
     local url="$1"
+    local db_type
     local db_name
     
+    # 确定数据库类型
     if [[ $url == mysql://* ]]; then
-        # 解析 MySQL URL
-        local host=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\3/p')
-        local port=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\4/p')
-        local user=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\1/p')
-        local pass=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\2/p')
-        db_name=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\5/p')
+        db_type="mysql"
     elif [[ $url == postgres://* ]]; then
-        # 解析 PostgreSQL URL
-        local host=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\3/p')
-        local port=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\4/p')
-        local user=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\1/p')
-        local pass=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\2/p')
-        db_name=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\5/p')
+        db_type="postgres"
     else
         log "ERROR" "不支持的数据库 URL 格式: ${url}"
         return 1
     fi
+    
+    # 解析数据库 URL
+    local parsed_url
+    parsed_url=$(parse_db_url "$url" "$db_type")
+    if [ -z "$parsed_url" ]; then
+        log "ERROR" "解析数据库 URL 失败: ${url}"
+        return 1
+    fi
+    
+    # 提取连接信息
+    IFS=':' read -r user pass host port db_name <<< "$parsed_url"
     
     # 验证数据库名称
     if ! validate_db_name "$db_name"; then
@@ -119,43 +167,50 @@ backup_database() {
     # 备份数据库
     log "INFO" "开始备份数据库: ${db_name}"
     
-    if [[ $url == mysql://* ]]; then
-        # MySQL 备份
-        if ! mysqldump \
-            --host="$host" \
-            --port="$port" \
-            --user="$user" \
-            --password="$pass" \
-            --events \
-            --routines \
-            --triggers \
-            --single-transaction \
-            --quick \
-            --lock-tables=false \
-            "$db_name" 2>/dev/null \
-            > "${backup_file}"; then
-            log "ERROR" "数据库 ${db_name} 备份失败"
-            rm -f "${backup_file}"
-            return 1
-        fi
-    elif [[ $url == postgres://* ]]; then
-        # PostgreSQL 备份
-        if ! PGPASSWORD="$pass" pg_dump \
-            -h "$host" \
-            -p "$port" \
-            -U "$user" \
-            -d "$db_name" \
-            > "${backup_file}"; then
-            log "ERROR" "数据库 ${db_name} 备份失败"
-            rm -f "${backup_file}"
-            return 1
-        fi
-    fi
+    case "$db_type" in
+        "mysql")
+            if ! mysqldump \
+                --host="$host" \
+                --port="$port" \
+                --user="$user" \
+                --password="$pass" \
+                --events \
+                --routines \
+                --triggers \
+                --single-transaction \
+                --quick \
+                --lock-tables=false \
+                "$db_name" 2>/dev/null \
+                > "${backup_file}"; then
+                log "ERROR" "数据库 ${db_name} 备份失败"
+                rm -f "${backup_file}"
+                return 1
+            fi
+            ;;
+        "postgres")
+            if ! PGPASSWORD="$pass" pg_dump \
+                -h "$host" \
+                -p "$port" \
+                -U "$user" \
+                -d "$db_name" \
+                > "${backup_file}"; then
+                log "ERROR" "数据库 ${db_name} 备份失败"
+                rm -f "${backup_file}"
+                return 1
+            fi
+            ;;
+    esac
 
     # 压缩备份文件
     if ! gzip -${COMPRESSION_LEVEL} -f "${backup_file}"; then
         log "ERROR" "压缩备份文件失败: ${backup_file}"
         rm -f "${backup_file}"
+        return 1
+    fi
+    
+    # 验证备份文件
+    if ! verify_backup "${backup_file}.gz" "$db_type"; then
+        rm -f "${backup_file}.gz"
         return 1
     fi
     
@@ -165,6 +220,61 @@ backup_database() {
     cleanup_old_backups "$backup_dir" "$db_name"
     
     return 0
+}
+
+# 从文件读取数据库连接字符串
+read_database_urls() {
+    local urls_file="${REPO_DIR}/${DATABASE_CONFIG_FILE:-database_urls.txt}"
+    
+    if [ ! -f "${urls_file}" ]; then
+        log "ERROR" "数据库连接字符串文件不存在: ${urls_file}"
+        return 1
+    fi
+    
+    # 读取非空行和非注释行，并过滤掉空白字符
+    DATABASE_URLS=$(grep -v '^#' "${urls_file}" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '\n' ',' | sed 's/,$//')
+    
+    if [ -z "${DATABASE_URLS}" ]; then
+        log "ERROR" "未找到有效的数据库连接字符串，请在 ${DATABASE_CONFIG_FILE:-database_urls.txt} 中配置"
+        return 1
+    fi
+    
+    # 记录找到的数据库连接字符串数量
+    local count=$(echo "${DATABASE_URLS}" | tr ',' '\n' | wc -l)
+    log "INFO" "从文件中读取到 ${count} 个数据库连接字符串"
+    
+    export DATABASE_URLS
+    return 0
+}
+
+# 并行备份函数
+parallel_backup() {
+    local urls=("$@")
+    local max_parallel="${MAX_PARALLEL_BACKUPS:-3}"
+    local pids=()
+    
+    for url in "${urls[@]}"; do
+        # 等待，直到有足够的并行槽位
+        while [ ${#pids[@]} -ge "$max_parallel" ]; do
+            for i in "${!pids[@]}"; do
+                if ! kill -0 "${pids[$i]}" 2>/dev/null; then
+                    unset 'pids[$i]'
+                    pids=("${pids[@]}")
+                fi
+            done
+            sleep 1
+        done
+        
+        # 启动新的备份进程
+        backup_database "$url" &
+        pids+=($!)
+        log "INFO" "启动数据库备份进程: $url (PID: ${pids[-1]})"
+    done
+    
+    # 等待所有进程完成
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
 }
 
 # 主函数
@@ -177,16 +287,16 @@ main() {
         exit 1
     fi
     
+    # 读取数据库连接字符串
+    if ! read_database_urls; then
+        exit 1
+    fi
+    
     # 获取数据库 URL 列表
     urls=(${DATABASE_URLS//,/ })
     
-    # 备份每个数据库
-    for url in "${urls[@]}"; do
-        if ! backup_database "$url"; then
-            log "ERROR" "备份数据库失败: ${url}"
-            continue
-        fi
-    done
+    # 并行备份所有数据库
+    parallel_backup "${urls[@]}"
     
     log "INFO" "所有数据库备份完成"
 }
