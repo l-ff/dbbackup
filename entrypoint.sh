@@ -82,7 +82,7 @@ check_database_connection() {
             local pass=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\2/p')
             local db=$(echo "$url" | sed -n 's/mysql:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\5/p')
             
-            log "INFO" "验证 MySQL 连接: ${host}:${port}"
+            log "INFO" "验证 MySQL 连接: ${user}:${pass}@${host}:${port}/${db}"
             if ! mysql --host="${host}" --port="${port}" \
                 --user="${user}" --password="${pass}" \
                 -e "SELECT 1" > /dev/null 2>&1; then
@@ -97,7 +97,7 @@ check_database_connection() {
             local pass=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\2/p')
             local db=$(echo "$url" | sed -n 's/postgres:\/\/\([^:]*\):\([^@]*\)@\([^:]*\):\([0-9]*\)\/\(.*\)/\5/p')
             
-            log "INFO" "验证 PostgreSQL 连接: ${host}:${port}"
+            log "INFO" "验证 PostgreSQL 连接: ${user}:${pass}@${host}:${port}/${db}"
             if ! PGPASSWORD="${pass}" psql -h "${host}" -p "${port}" -U "${user}" -d "${db}" -c "SELECT 1" > /dev/null 2>&1; then
                 log "ERROR" "无法连接到 PostgreSQL 服务器: ${host}:${port}"
                 return 1
