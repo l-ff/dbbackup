@@ -53,9 +53,9 @@ RUN mkdir -p ${BACKUP_DIR} ${REPO_DIR} /var/log ~/.ssh && \
     chmod 700 ~/.ssh
 
 # 配置定时任务
-RUN echo "${CRON_SCHEDULE} root bash ${BACKUP_DIR}/backup.sh >> ${BACKUP_LOG} 2>&1" > /etc/cron.d/mysql-backup && \
-    chmod 0644 /etc/cron.d/mysql-backup && \
-    echo "" >> /etc/cron.d/mysql-backup
+RUN echo "${CRON_SCHEDULE} bash ${BACKUP_DIR}/backup.sh >> ${BACKUP_LOG} 2>&1" > /etc/cron.d/db-backup && \
+    chmod 0644 /etc/cron.d/db-backup && \
+    echo "" >> /etc/cron.d/db-backup
 
 # 复制脚本
 COPY backup.sh ${BACKUP_DIR}/backup.sh
