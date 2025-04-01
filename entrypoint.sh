@@ -85,9 +85,10 @@ check_database_connection() {
             log "INFO" "验证 MySQL 连接: ${host}:${port}"
             if ! mysql --host="${host}" --port="${port}" \
                 --user="${user}" --password="${pass}" \
+                --ssl=0 \
                 -e "SELECT 1" > /dev/null 2>&1; then
                 log "ERROR" "无法连接到 MySQL 服务器: ${host}:${port}"
-                return 0
+                return 1
             fi
         elif [[ $url == postgres://* ]]; then
             # 解析 PostgreSQL URL
@@ -100,11 +101,11 @@ check_database_connection() {
             log "INFO" "验证 PostgreSQL 连接: ${host}:${port}"
             if ! PGPASSWORD="${pass}" psql -h "${host}" -p "${port}" -U "${user}" -d "${db}" -c "SELECT 1" > /dev/null 2>&1; then
                 log "ERROR" "无法连接到 PostgreSQL 服务器: ${host}:${port}"
-                return 0
+                return 1
             fi
         else
             log "ERROR" "不支持的数据库 URL 格式: ${url}"
-            return 0
+            return 1
         fi
     done
     log "INFO" "所有数据库连接验证成功"
@@ -186,7 +187,7 @@ main() {
     read_database_urls || exit 1
 
     # 验证数据库连接
-    check_database_connection
+    check_database_connection || exit 1
 
     # 启动 cron 服务
     log "INFO" "启动 cron 服务..."
