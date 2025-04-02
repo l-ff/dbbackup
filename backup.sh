@@ -315,6 +315,43 @@ parallel_backup() {
     done
 }
 
+# Git 分支同步函数
+sync_git_branch() {
+    if [ ! -d "${REPO_DIR}/.git" ]; then
+        log "WARN" "未找到 git 仓库，跳过分支同步"
+        return 0
+    fi
+    
+    cd "${REPO_DIR}" || exit 1
+    
+    # 检查是否存在锁文件
+    if [ -f ".git/index.lock" ]; then
+        log "WARN" "发现 Git 锁文件，尝试删除..."
+        rm -f .git/index.lock
+    fi
+    
+    # 获取当前分支
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    
+    # 如果不在 main 分支，切换到 main 分支
+    if [ "$current_branch" != "main" ]; then
+        log "INFO" "切换到 main 分支"
+        if ! git checkout main; then
+            log "ERROR" "切换到 main 分支失败"
+            return 1
+        fi
+    fi
+    
+    # 拉取最新代码
+    log "INFO" "同步远程代码"
+    if ! git pull origin main; then
+        log "ERROR" "同步远程代码失败"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Git 推送函数
 push_to_remote() {
     if [ ! -d "${REPO_DIR}/.git" ]; then
@@ -356,6 +393,11 @@ main() {
     
     # 检查磁盘空间
     if ! check_disk_space; then
+        exit 1
+    fi
+    
+    # 同步 Git 分支
+    if ! sync_git_branch; then
         exit 1
     fi
     
