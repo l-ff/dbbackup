@@ -162,6 +162,49 @@ mysql://user:my%40password@host:3306/db
           └── ...
 ```
 
+## 数据库还原
+
+### 还原步骤
+
+1. **下载备份文件**
+   - 从 Git 仓库中下载需要还原的备份文件（.sql.gz 格式）
+   - 使用 `git clone` 或直接从 GitHub 网页下载
+
+2. **解压备份文件**
+   ```bash
+   # 解压 .sql.gz 文件
+   gunzip backup_20240331_020000.sql.gz
+   ```
+
+3. **还原数据库**
+
+   #### MySQL 数据库还原
+   ```bash
+   # 方法 1：使用 mysql 命令行
+   mysql -u username -p database_name < backup_20240331_020000.sql
+
+   # 方法 2：使用 mysqlimport
+   mysqlimport -u username -p database_name backup_20240331_020000.sql
+   ```
+
+   #### PostgreSQL 数据库还原
+   ```bash
+   # 方法 1：使用 psql 命令行
+   psql -U username -d database_name < backup_20240331_020000.sql
+
+   # 方法 2：使用 pg_restore（如果备份是自定义格式）
+   pg_restore -U username -d database_name backup_20240331_020000.sql
+   ```
+
+### 还原注意事项
+
+- 还原前请确保目标数据库已创建
+- 确保有足够的磁盘空间
+- 建议在还原前备份目标数据库
+- 还原过程中请勿中断操作
+- 对于大型数据库，建议在低峰期进行还原
+- 还原后检查数据库完整性和一致性
+
 ## 日志
 
 备份日志位于容器内的 `/var/log/cron.log` 文件中，包含详细的备份过程和错误信息。
