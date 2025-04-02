@@ -315,6 +315,40 @@ parallel_backup() {
     done
 }
 
+# Git 推送函数
+push_to_remote() {
+    if [ ! -d "${REPO_DIR}/.git" ]; then
+        log "WARN" "未找到 git 仓库，跳过推送操作"
+        return 0
+    fi
+    
+    cd "${REPO_DIR}" || exit 1
+    
+    # 检查是否存在锁文件
+    if [ -f ".git/index.lock" ]; then
+        log "WARN" "发现 Git 锁文件，尝试删除..."
+        rm -f .git/index.lock
+    fi
+    
+    # 尝试推送，最多重试3次
+    max_retries=3
+    retry_count=1
+    while [ $retry_count -le $max_retries ]; do
+        if git push; then
+            log "INFO" "所有备份已成功推送到远程仓库"
+            break
+        else
+            if [ $retry_count -eq $max_retries ]; then
+                log "WARN" "推送到远程仓库失败（已重试${max_retries}次）"
+                break
+            fi
+            log "WARN" "推送到远程仓库失败，${retry_count}秒后重试..."
+            sleep $retry_count
+            retry_count=$((retry_count + 1))
+        fi
+    done
+}
+
 # 主函数
 main() {
     # 验证环境变量
@@ -337,6 +371,9 @@ main() {
     parallel_backup "${urls[@]}"
     
     log "INFO" "所有数据库备份完成"
+    
+    # 统一推送到远程仓库
+    push_to_remote
 }
 
 # 执行主函数
