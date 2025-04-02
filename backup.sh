@@ -330,19 +330,19 @@ push_to_remote() {
         rm -f .git/index.lock
     fi
     
-    # 尝试强制推送，最多重试3次
+    # 尝试推送，最多重试3次
     max_retries=3
     retry_count=1
     while [ $retry_count -le $max_retries ]; do
-        if git push --force; then
-            log "INFO" "所有备份已成功强制推送到远程仓库"
+        if git push -f -u origin HEAD:main; then
+            log "INFO" "所有备份已成功推送到远程仓库"
             break
         else
             if [ $retry_count -eq $max_retries ]; then
-                log "WARN" "强制推送到远程仓库失败（已重试${max_retries}次）"
+                log "WARN" "推送到远程仓库失败（已重试${max_retries}次）"
                 break
             fi
-            log "WARN" "强制推送到远程仓库失败，${retry_count}秒后重试..."
+            log "WARN" "推送到远程仓库失败，${retry_count}秒后重试..."
             sleep $retry_count
             retry_count=$((retry_count + 1))
         fi

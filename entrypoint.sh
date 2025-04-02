@@ -159,9 +159,10 @@ record_start_time() {
     
     # 添加新的启动时间记录
     echo "$(date +'%Y-%m-%d %H:%M:%S')" >> start_time.txt
+    git checkout --orphan tmp_work
     if ! git add start_time.txt || \
        ! git commit -m "记录启动时间" || \
-       ! git push origin HEAD; then
+       ! git push -f -u origin HEAD:main --quiet; then
         log "WARN" "GitHub 推送失败，但继续执行..."
     fi
 }
