@@ -330,16 +330,14 @@ sync_git_branch() {
         rm -f .git/index.lock
     fi
     
-    # 获取当前分支
-    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    # 配置 Git pull 策略为 rebase
+    git config pull.rebase true
     
-    # 如果不在 main 分支，切换到 main 分支
-    if [ "$current_branch" != "main" ]; then
-        log "INFO" "切换到 main 分支"
-        if ! git checkout main; then
-            log "ERROR" "切换到 main 分支失败"
-            return 1
-        fi
+    # 强制切换到 main 分支，放弃本地修改
+    log "INFO" "强制切换到 main 分支"
+    if ! git checkout -f main; then
+        log "ERROR" "切换到 main 分支失败"
+        return 1
     fi
     
     # 拉取最新代码
